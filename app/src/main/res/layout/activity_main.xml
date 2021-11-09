@@ -398,6 +398,17 @@
 
         </GridLayout>
 
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fab"
+            android:layout_width="67dp"
+            android:layout_height="57dp"
+            android:layout_gravity="bottom|end"
+            android:src="@drawable/add"
+            app:backgroundTint="#2196F3"
+            app:fabSize="normal"
+            app:layout_anchor="@+id/gridLayout"
+            app:layout_anchorGravity="end|bottom" />
+
 
     </androidx.coordinatorlayout.widget.CoordinatorLayout>
 
