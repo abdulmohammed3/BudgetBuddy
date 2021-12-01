@@ -34,6 +34,7 @@ import com.google.firebase.database.ValueEventListener;
 import org.joda.time.DateTime;
 import org.joda.time.Months;
 import org.joda.time.MutableDateTime;
+import org.joda.time.Weeks;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -45,9 +46,17 @@ public class BudgetActivity extends AppCompatActivity {
 
     private TextView totalBudgetAmountTV;
     private RecyclerView recyclerView;
+
     private DatabaseReference budgetRef;
     private FirebaseAuth mAuth;
     private ProgressDialog loader;
+
+    private  String post_key = "";
+    private String item ="";
+    private int amount = 0;
+
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -61,7 +70,6 @@ public class BudgetActivity extends AppCompatActivity {
         recyclerView = findViewById(R.id.recyclerView);
 
         LinearLayoutManager linearLayoutManager = new LinearLayoutManager(this);
-
         linearLayoutManager.setStackFromEnd(true);
         linearLayoutManager.setReverseLayout(true);
         recyclerView.setHasFixedSize(true);
@@ -108,6 +116,7 @@ public class BudgetActivity extends AppCompatActivity {
 
         final Spinner itemSpinner = myView.findViewById(R.id.itemsspinner);
         final EditText amount = myView.findViewById(R.id.amount);
+        final EditText no = myView.findViewById(R.id.note);
         final Button cancel = myView.findViewById(R.id.cancel);
         final Button save = myView.findViewById(R.id.save);
 
@@ -116,6 +125,7 @@ public class BudgetActivity extends AppCompatActivity {
             public void onClick(View v) {
                 String budgetAmount = amount.getText().toString();
                 String budgetItem = itemSpinner.getSelectedItem().toString();
+                String notes = no.getText().toString();
 
                 if(TextUtils.isEmpty(budgetAmount)){
                     amount.setError("Amount is requiered");
@@ -138,9 +148,10 @@ public class BudgetActivity extends AppCompatActivity {
                     MutableDateTime epoch = new MutableDateTime();
                     epoch.setDate(0);
                     DateTime now = new DateTime();
+                    Weeks weeks = Weeks.weeksBetween(epoch,now);
                     Months month = Months.monthsBetween(epoch,now);
 
-                    Data data = new Data(budgetItem,date,id,null,Integer.parseInt(budgetAmount),month.getMonths());
+                    Data data = new Data(budgetItem,date,id,notes,Integer.parseInt(budgetAmount),month.getMonths(),weeks.getWeeks());
                     budgetRef.child(id).setValue(data).addOnCompleteListener(new OnCompleteListener<Void>() {
                         @Override
                         public void onComplete(@NonNull Task<Void> task) {
@@ -185,9 +196,10 @@ public class BudgetActivity extends AppCompatActivity {
 
                 myViewHolder.setItemAmount("Allocated amount: $"+data.getAmount());
                 myViewHolder.setDate("On: "+data.getDate());
+                myViewHolder.setNotes("Notes: "+data.getNotes());
                 myViewHolder.setItemName("Budget Item: "+data.getItem());
 
-                myViewHolder.notes.setText(View.GONE);
+               // myViewHolder.notes.setText(View.GONE);
 
                 switch (data.getItem()){
                     case "Transport":
@@ -222,6 +234,16 @@ public class BudgetActivity extends AppCompatActivity {
                         break;
                 }
 
+                myViewHolder.myView.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        post_key = getRef(i).getKey();
+                        item = data.getItem();
+                        amount = data.getAmount();
+                        updateData();
+                    }
+                });
+
             }
 
             @NonNull
@@ -240,13 +262,14 @@ public class BudgetActivity extends AppCompatActivity {
     public class myViewHolder extends RecyclerView.ViewHolder{
     View myView;
     public ImageView imageView;
-    public TextView notes;
+    public TextView notes,date;
 
         public myViewHolder(@NonNull View itemView) {
             super(itemView);
             myView = itemView;
             imageView = itemView.findViewById(R.id.imageView);
             notes = itemView.findViewById(R.id.note);
+            date = itemView.findViewById(R.id.date);
         }
         public void setItemName (String itemName){
             TextView item = myView.findViewById(R.id.item);
@@ -257,10 +280,88 @@ public class BudgetActivity extends AppCompatActivity {
             TextView item = myView.findViewById(R.id.amount);
             item.setText(itemAmount);
         }
+        public void setNotes (String itemNotes){
+            TextView item = myView.findViewById(R.id.note);
+            item.setText(itemNotes);
+        }
 
         public void setDate (String itemDate){
-            TextView item = myView.findViewById(R.id.date);
-            item.setText(itemDate);
+            TextView date = myView.findViewById(R.id.date);
+            date.setText(itemDate);
         }
+    }
+    private void updateData(){
+        AlertDialog.Builder myDia = new AlertDialog.Builder(this);
+        LayoutInflater inflater = LayoutInflater.from(this);
+        View mView = inflater.inflate(R.layout.update_layout, null);
+
+        myDia.setView(mView);
+        final AlertDialog dialog = myDia.create();
+
+        final TextView mItem = mView.findViewById(R.id.itemName);
+        final EditText mAmount = mView.findViewById(R.id.amount);
+        final EditText mNotes = mView.findViewById(R.id.note);
+
+        mItem.setText(item);
+
+
+
+        mAmount.setText(String.valueOf(amount));
+        mAmount.setSelection(String.valueOf(amount).length());
+
+        Button delBut = mView.findViewById(R.id.btnDelete);
+        Button btnUpdate = mView.findViewById(R.id.btnUpdate);
+
+        btnUpdate.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                amount = Integer.parseInt(mAmount.getText().toString());
+
+                DateFormat df = new SimpleDateFormat("dd-mm-yyyy");
+                Calendar cal = Calendar.getInstance();
+                String date = df.format(cal.getTime());
+
+                MutableDateTime epoch = new MutableDateTime();
+                epoch.setDate(0);
+                DateTime now = new DateTime();
+                Weeks weeks = Weeks.weeksBetween(epoch,now);
+                Months month = Months.monthsBetween(epoch,now);
+
+                Data data = new Data(item,date,post_key,null,amount,month.getMonths(),weeks.getWeeks());
+                budgetRef.child(post_key).setValue(data).addOnCompleteListener(new OnCompleteListener<Void>() {
+                    @Override
+                    public void onComplete(@NonNull Task<Void> task) {
+                        if(task.isSuccessful()){
+                            Toast.makeText(BudgetActivity.this, "Updated Successfully", Toast.LENGTH_SHORT).show();
+                        }else {
+                            Toast.makeText(BudgetActivity.this, task.getException().toString(), Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                });
+                dialog.dismiss();
+            }
+        });
+
+        delBut.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                budgetRef.child(post_key).removeValue().addOnCompleteListener(new OnCompleteListener<Void>() {
+                    @Override
+                    public void onComplete(@NonNull Task<Void> task) {
+                        if(task.isSuccessful()){
+                            Toast.makeText(BudgetActivity.this, "Deleted Successfully", Toast.LENGTH_SHORT).show();
+                        }else {
+                            Toast.makeText(BudgetActivity.this, task.getException().toString(), Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                });
+                dialog.dismiss();
+
+            }
+        });
+
+        dialog.show();
+
+
     }
 }
